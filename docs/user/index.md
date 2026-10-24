@@ -91,7 +91,9 @@ Recipes can be imported by entering the URL to a recipe in the text-input field 
 
 <img src="assets/create_import.png" alt="Recipe-import field" width="200px" />
 
-However, the Cookbook app requires the recipe site to support the [schema.org recipe standard](https://www.schema.org/Recipe)’s JSON+LD meta data. Those websites which don't provide the required data are currently not supported.
+The Cookbook app requires the recipe site to provide [schema.org recipe metadata](https://www.schema.org/Recipe), either as JSON+LD or HTML microdata. Websites without the required data are currently not supported.
+
+For KptnCook, only the preview instructions published on the web page are imported. These are incomplete; the full instructions are available in the KptnCook app. Cookbook does not query KptnCook’s internal API. When the page provides a valid absolute canonical KptnCook recipe URL, Cookbook stores it as the source instead of the share or short link.
 
 ## Sharing Recipes
 

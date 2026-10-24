@@ -90,6 +90,24 @@ class HttpMicrodataParser extends AbstractHtmlParser {
 		) {
 			$this->recipe['recipeInstructions'] = [];
 
+			$previewSteps = $this->xpath->query(
+				".//div[contains(concat(' ', normalize-space(@class), ' '), ' kptn-step-title ')]",
+				$recipeNode,
+			);
+			foreach ($previewSteps as $step) {
+				if (!$step instanceof DOMElement) {
+					continue;
+				}
+				$text = trim(preg_replace('/\s+/u', ' ', $step->textContent) ?? '');
+				$text = preg_replace('/^\d+\.\s*/u', '', $text) ?? $text;
+				if ($text !== '') {
+					$this->recipe['recipeInstructions'][] = $text;
+				}
+			}
+			if ($this->recipe['recipeInstructions']) {
+				return;
+			}
+
 			$step_elements = $recipeNode->getElementsByTagName('p');
 
 			foreach ($step_elements as $step_element) {

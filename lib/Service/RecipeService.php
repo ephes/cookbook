@@ -6,6 +6,8 @@
 
 namespace OCA\Cookbook\Service;
 
+use DOMDocument;
+use DOMXPath;
 use Exception;
 use OCA\Cookbook\Db\RecipeDb;
 use OCA\Cookbook\Exception\HtmlParsingException;
@@ -355,6 +357,7 @@ class RecipeService {
 		try {
 			$json = $this->recipeExtractionService->parse($this->htmlDownloadService->getDom(), $url);
 			$importedHtml = $this->htmlDownloadService->getDom()->saveHTML();
+			$json['url'] = $this->getRecipeSourceUrl($this->htmlDownloadService->getDom(), $url);
 		} catch (HtmlParsingException $ex) {
 			throw new ImportException($ex->getMessage(), null, $ex);
 		}
@@ -367,9 +370,33 @@ class RecipeService {
 			throw new ImportException($this->il10n->t('No recipe data found. This is a bug'));
 		}
 
-		$json['url'] = $url;
-
 		return $this->addRecipe($json, $importedHtml);
+	}
+
+	private function getRecipeSourceUrl(DOMDocument $document, string $requestedUrl): string {
+		$host = strtolower(parse_url($requestedUrl, PHP_URL_HOST) ?? '');
+		if (!in_array($host, ['mobile.kptncook.com', 'kptncook.onelink.me'], true)) {
+			return $requestedUrl;
+		}
+
+		$xpath = new DOMXPath($document);
+		$links = $xpath->query("/html/head/link[contains(concat(' ', normalize-space(translate(@rel, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')), ' '), ' canonical ')]/@href");
+		foreach ($links as $href) {
+			$canonical = trim($href->nodeValue ?? '');
+			// Relative links cannot be resolved reliably against a share URL after redirects.
+			if (filter_var($canonical, FILTER_VALIDATE_URL) === false) {
+				continue;
+			}
+			$parts = parse_url($canonical);
+			if (in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+				&& strtolower($parts['host'] ?? '') === 'mobile.kptncook.com'
+				&& !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['port'])
+				&& preg_match('~^/recipe/(?:pinterest/)?[^/]+/[0-9a-f]{8}$~i', $parts['path'] ?? '') === 1) {
+				return $canonical;
+			}
+		}
+
+		return $requestedUrl;
 	}
 
 	/**

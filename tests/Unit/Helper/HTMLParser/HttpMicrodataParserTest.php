@@ -157,6 +157,46 @@ class HttpMicrodataParserTest extends TestCase {
 		$this->finishTest($parser, $content, 'caseInstruction.json');
 	}
 
+	public static function kptnCookInstructions(): array {
+		return [
+			'preview steps before paragraph fallback' => [
+				'<p>Download the app.</p><div class="extra kptn-step-title selected"><div><span>1. </span>Get ready.</div></div>'
+				. '<div class="kptn-step-title"><div><span>2. </span>Cook <strong>pasta</strong>.</div></div>',
+				['Get ready.', 'Cook pasta.'],
+			],
+			'semantic instructions take precedence' => [
+				'<div itemprop="recipeInstructions">Full instructions.</div><div class="kptn-step-title">Preview.</div>',
+				['Full instructions.'],
+			],
+			'whitespace and empty preview steps' => [
+				"<div class=\"kptn-step-title\"> \n\t </div><div class=\"kptn-step-title\"><div>\n  Chop\n  nuts.\n</div></div>",
+				['Chop nuts.'],
+			],
+			'class names must match a whole token' => [
+				'<div class="not-kptn-step-title">Not a step.</div><p>Paragraph step.</p>',
+				['Paragraph step.'],
+			],
+			'empty preview falls back to paragraphs' => [
+				'<div class="kptn-step-title"> </div><p>Paragraph step.</p>',
+				['Paragraph step.'],
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider kptnCookInstructions
+	 */
+	public function testKptnCookInstructions(string $content, array $expected): void {
+		$document = new \DOMDocument();
+		$document->loadHTML('<html><body><div class="kptn-step-title">Outside recipe.</div>'
+			. '<div itemscope itemtype="http://schema.org/Recipe">' . $content . '</div></body></html>');
+		$parser = new HttpMicrodataParser($this->createStub(IL10N::class));
+
+		$recipe = $parser->parse($document, 'https://mobile.kptncook.com/r/372e5024');
+
+		$this->assertSame($expected, $recipe['recipeInstructions']);
+	}
+
 	private function finishTest($parser, $content, $jsonFile): void {
 		$document = new \DOMDocument();
 		$document->loadHTML($content);
